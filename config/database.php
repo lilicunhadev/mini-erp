@@ -4,5 +4,5 @@ return [
     'host'   => 'localhost',
     'dbname' => 'mini_erp',
     'user'   => 'root',
-    'pass'   => '',
+    'pass'   => 'Pink2025*',
 ];
