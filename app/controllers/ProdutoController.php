@@ -81,10 +81,12 @@ class ProdutoController extends Controller
             exit;
         }
 
+        $variacoes = Produto::getVariacoes($id);
         $estoque = Produto::getEstoque($id);
         
         $this->view('produtos/edit', [
             'produto' => $produto,
+            'variacoes' => $variacoes,
             'estoque' => $estoque
         ]);
     }
@@ -119,14 +121,111 @@ class ProdutoController extends Controller
 
         Produto::update($id, $data);
         
-        // Atualizar estoque se informado
-        if (isset($_POST['estoque'])) {
-            $estoque = (int)$_POST['estoque'];
-            Produto::updateEstoque($id, null, $estoque);
+        // Verificar variações atuais do produto
+        $variacoesExistentes = Produto::getVariacoes($id);
+        $temVariacoesExistentes = !empty($variacoesExistentes);
+        
+        // Verificar se existem variações sendo enviadas
+        $temVariacoes = isset($_POST['variacoes']) && is_array($_POST['variacoes']) && !empty($_POST['variacoes']);
+        $temVariacoesValidas = false;
+        
+        if ($temVariacoes) {
+            // Verificar se há pelo menos uma variação válida
+            foreach ($_POST['variacoes'] as $variacaoData) {
+                $tipo = trim($variacaoData['tipo'] ?? '');
+                $valor = trim($variacaoData['valor'] ?? '');
+                if (!empty($tipo) && !empty($valor)) {
+                    $temVariacoesValidas = true;
+                    break;
+                }
+            }
+        }
+        
+        if ($temVariacoesValidas) {
+            // MODO VARIAÇÕES: Processar variações
+            // Se produto não tinha variações antes, remove estoque geral
+            if (!$temVariacoesExistentes) {
+                Produto::removeEstoqueGeral($id);
+            }
+            
+            // Processar variações
+            foreach ($_POST['variacoes'] as $variacaoData) {
+                $variacaoId = !empty($variacaoData['id']) ? (int)$variacaoData['id'] : null;
+                $tipo = trim($variacaoData['tipo'] ?? '');
+                $valor = trim($variacaoData['valor'] ?? '');
+                $estoque = (int)($variacaoData['estoque'] ?? 0);
+                
+                // Pular variações vazias
+                if (empty($tipo) || empty($valor)) {
+                    continue;
+                }
+                
+                if ($variacaoId) {
+                    // Atualizar variação existente
+                    Produto::updateVariacao($variacaoId, $tipo, $valor);
+                    Produto::updateEstoque($id, $variacaoId, $estoque);
+                } else {
+                    // Criar nova variação
+                    $novaVariacaoId = Produto::createVariacao($id, $tipo, $valor);
+                    if ($estoque > 0) {
+                        Produto::updateEstoque($id, $novaVariacaoId, $estoque);
+                    }
+                }
+            }
+        } else {
+            // MODO ESTOQUE GERAL: Atualizar estoque geral
+            // Só remove variações se o usuário explicitamente removeu todas
+            
+            // Atualizar estoque geral se informado
+            if (isset($_POST['estoque'])) {
+                $estoque = (int)$_POST['estoque'];
+                Produto::updateEstoque($id, null, $estoque);
+            }
+        }
+        
+        // Remover variações marcadas para exclusão
+        if (isset($_POST['remover_variacoes']) && is_array($_POST['remover_variacoes'])) {
+            foreach ($_POST['remover_variacoes'] as $variacaoId) {
+                Produto::removeVariacao((int)$variacaoId);
+            }
+        }
+        
+        // Verificar se todas as variações foram removidas após processamento
+        $variacoesRestantes = Produto::getVariacoes($id);
+        if ($temVariacoesExistentes && empty($variacoesRestantes) && !$temVariacoesValidas) {
+            // Se tinha variações antes, não tem mais agora, e não está adicionando novas
+            // então o usuário removeu todas - voltar ao modo estoque geral
+            // (O estoque geral já foi atualizado acima se necessário)
         }
 
         $_SESSION['success'] = 'Produto atualizado com sucesso!';
-        header('Location: /produto/' . $id);
+        header('Location: /produto/show?id=' . $id);
+        exit;
+    }
+
+    public function delete(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /');
+            exit;
+        }
+
+        $id = (int)($_POST['id'] ?? 0);
+        $produto = Produto::find($id);
+        
+        if (!$produto) {
+            $_SESSION['error'] = 'Produto não encontrado.';
+            header('Location: /');
+            exit;
+        }
+
+        if (Produto::delete($id)) {
+            $_SESSION['success'] = 'Produto excluído com sucesso!';
+        } else {
+            $_SESSION['error'] = 'Erro ao excluir produto.';
+        }
+        
+        header('Location: /');
         exit;
     }
 

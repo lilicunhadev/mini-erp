@@ -7,6 +7,7 @@ $routes = [
     '/produto/show'        => ['ProdutoController', 'show'],
     '/produto/edit'        => ['ProdutoController', 'edit'],
     '/produto/update'      => ['ProdutoController', 'update'],
+    '/produto/delete'      => ['ProdutoController', 'delete'],
     '/produto/add-to-cart' => ['ProdutoController', 'addToCart'],
 ];
 

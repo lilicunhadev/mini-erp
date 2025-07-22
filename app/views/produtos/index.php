@@ -42,6 +42,9 @@ ob_start();
                             <a href="/produto/edit?id=<?= $produto['id'] ?>" class="btn btn-outline-secondary btn-sm">
                                 <i class="bi bi-pencil"></i> Editar
                             </a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="confirmarExclusao(<?= $produto['id'] ?>)">
+                                <i class="bi bi-trash"></i> Excluir
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -49,6 +52,20 @@ ob_start();
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
+
+<!-- Formulário oculto para exclusão -->
+<form id="form-excluir" action="/produto/delete" method="POST" style="display: none;">
+    <input type="hidden" name="id" id="produto-id-excluir">
+</form>
+
+<script>
+function confirmarExclusao(produtoId) {
+    if (confirm('Tem certeza que deseja excluir este produto?\n\nEsta ação não pode ser desfeita.')) {
+        document.getElementById('produto-id-excluir').value = produtoId;
+        document.getElementById('form-excluir').submit();
+    }
+}
+</script>
 
 <?php
 $content = ob_get_clean();
